@@ -5,83 +5,90 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
 plugins {
-    id("org.jetbrains.kotlin.jvm") version "1.9.23"
-    id("com.github.johnrengelman.shadow") version "8.1.1"
-    id("eclipse")
+    id("java") // Tell gradle this is a java project.
+    id("java-library") // Import helper for source-based libraries.
+    id("com.diffplug.spotless") version "7.0.4"
+    id("com.gradleup.shadow") version "8.3.6" // Import shadow API.
+    eclipse // Import eclipse plugin for IDE integration.
+}
+
+java {
+    // Declare java version.
+    sourceCompatibility = JavaVersion.VERSION_17
 }
 
 group = "net.trueog.wets-og" // Declare bundle identifier.
-version = "1.2"
-
+version = "1.2" // Declare plugin version (will be in .jar).
 val apiVersion = "1.19"
 
 tasks.named<ProcessResources>("processResources") {
     val props = mapOf(
         "version" to version,
-        "apiVersion" to apiVersion,
+        "apiVersion" to apiVersion
     )
+
+    inputs.properties(props) // Indicates to rerun if version changes.
 
     filesMatching("plugin.yml") {
         expand(props)
     }
+    from("LICENSE") { // Bundle license into .jars.
+        into("/")
+    }
 }
 
 repositories {
-
     mavenCentral()
-
+    gradlePluginPortal()
     maven {
         url = uri("https://repo.purpurmc.org/snapshots")
     }
-	maven {
-		url = uri("https://maven.enginehub.org/repo") // Get WorldEdit API from EngineHub Repository.
-	}
-
+    maven {
+        url = uri("https://maven.enginehub.org/repo") // Get WorldEdit API from EngineHub Repository.
+    }
 }
 
 dependencies {
-    compileOnly("org.purpurmc.purpur:purpur-api:1.19.4-R0.1-SNAPSHOT")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
-    compileOnly("com.sk89q.worldedit:worldedit-bukkit:7.2.14") 
+    compileOnly("org.purpurmc.purpur:purpur-api:1.19.4-R0.1-SNAPSHOT") // Declare purpur API version to be packaged.
+    compileOnly("com.sk89q.worldedit:worldedit-bukkit:7.3.0-SNAPSHOT") // Import WorldEdit API.
 }
 
-tasks.withType<AbstractArchiveTask>().configureEach {
+tasks.withType<AbstractArchiveTask>().configureEach { // Ensure reproducible .jars
     isPreserveFileTimestamps = false
     isReproducibleFileOrder = true
 }
 
 tasks.shadowJar {
+    archiveClassifier.set("") // Use empty string instead of null.
     minimize()
 }
 
-tasks.shadowJar.configure {
-    archiveClassifier.set("")
-    from("LICENSE") { 
-        into("/")
-    } 
+tasks.build {
+    dependsOn(tasks.spotlessApply)
+    dependsOn(tasks.shadowJar)
 }
 
 tasks.jar {
-    dependsOn("shadowJar")
-}
-
-tasks.jar.configure {
     archiveClassifier.set("part")
 }
 
 tasks.withType<JavaCompile>().configureEach {
     options.compilerArgs.add("-parameters")
-    options.encoding = "UTF-8" 
-    options.forkOptions.executable = File(options.forkOptions.javaHome, "bin/javac").path
-}
-
-kotlin {
-    jvmToolchain(17)
+    options.compilerArgs.add("-Xlint:deprecation") // Triggers deprecation warning messages.
+    options.encoding = "UTF-8"
+    options.isFork = true
 }
 
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(17)
         vendor = JvmVendorSpec.GRAAL_VM
+    }
+}
+
+spotless {
+    java {
+        removeUnusedImports()
+        palantirJavaFormat()
     }
 }

@@ -4,13 +4,13 @@ import java.util.function.Consumer;
 
 public interface Scheduler {
 
-	void flush();
-	void runPeriodically(Consumer<Task> action, long initialDelay, long period);
+    void flush();
 
-	@FunctionalInterface
-	interface Task {
+    void runPeriodically(Consumer<Task> action, long initialDelay, long period);
 
-		void cancel();
-	}
+    @FunctionalInterface
+    interface Task {
 
+        void cancel();
+    }
 }
